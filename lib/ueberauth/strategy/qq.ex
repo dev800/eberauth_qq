@@ -46,8 +46,8 @@ defmodule Ueberauth.Strategy.QQ do
 
   """
   use Ueberauth.Strategy,
-    uid_field: :unionid,
-    default_scope: "snsapi_userinfo",
+    uid_field: :uid,
+    default_scope: "",
     oauth2_module: Ueberauth.Strategy.QQ.OAuth
 
   alias Ueberauth.Auth.Info
@@ -170,14 +170,14 @@ defmodule Ueberauth.Strategy.QQ do
 
   defp fetch_user(conn, token) do
     conn = put_private(conn, :qq_token, token)
+
     # Will be better with Elixir 1.3 with/else
     case Ueberauth.Strategy.QQ.OAuth.get(token, "https://graph.qq.com/user/get_user_info") do
       {:ok, %OAuth2.Response{status_code: 401, body: _body}} ->
         set_errors!(conn, [error("token", "unauthorized")])
 
-      {:ok, %OAuth2.Response{status_code: _status_code, body: user}} ->
-        user = Jason.decode!(user)
-        put_private(conn, :qq_user, user)
+      {:ok, %OAuth2.Response{status_code: _status_code, body: body}} ->
+        put_private(conn, :qq_user, Jason.decode!(body))
 
       {:error, %OAuth2.Error{reason: reason}} ->
         set_errors!(conn, [error("OAuth2", reason)])

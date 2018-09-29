@@ -53,7 +53,7 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
   end
 
   def get(token, url, headers \\ [], opts \\ []) do
-    token
+    token.access_token
     |> get_uid()
     |> case do
       {:ok, uid} ->
@@ -76,17 +76,29 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
 
     case HTTPoison.get("#{url}?#{URI.encode_query(params)}") do
       {:ok, %HTTPoison.Response{body: body, status_code: 200}} ->
-        {:ok, %OAuth2.Response{status_code: 200, body: body}}
+        body
+        |> Jason.decode!()
+        |> case do
+          %{"ret" => 0} = user ->
+            body = user |> Map.put("uid", uid) |> Jason.encode!()
+            {:ok, %OAuth2.Response{status_code: 200, body: body}}
 
-      other ->
-        {:error, "get user info fail"}
+          %{"msg" => error_description} ->
+            {:error, %OAuth2.Error{reason: error_description}}
+
+          _ ->
+            {:error, %OAuth2.Error{reason: "get user info fail"}}
+        end
+
+      _ ->
+        {:error, %OAuth2.Error{reason: "get user info fail"}}
     end
   end
 
   def get_uid(nil), do: {:error, "token is nil"}
 
-  def get_uid(token) do
-    params = %{access_token: token.access_token}
+  def get_uid(access_token) do
+    params = %{access_token: access_token}
 
     case HTTPoison.get("#{@defaults[:id_url]}?#{URI.encode_query(params)}") do
       {:ok, %HTTPoison.Response{body: response_body, status_code: 200}} ->
