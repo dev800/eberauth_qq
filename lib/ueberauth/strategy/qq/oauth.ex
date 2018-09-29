@@ -15,6 +15,7 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
     site: "https://graph.qq.com/oauth2.0/",
     authorize_url: "https://graph.qq.com/oauth2.0/authorize",
     token_url: "https://graph.qq.com/oauth2.0/token",
+    refresh_token_url: "https://graph.qq.com/oauth2.0/token",
     id_url: "https://graph.qq.com/oauth2.0/me"
   ]
 
@@ -52,7 +53,7 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
     |> OAuth2.Client.authorize_url!(params)
   end
 
-  def get(token, url, headers \\ [], opts \\ []) do
+  def get(token, url, _headers \\ [], _opts \\ []) do
     token.access_token
     |> _get_uid()
     |> case do
@@ -142,8 +143,32 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
       }"
 
     token_url
-    |> HTTPoison.get()
-    |> case do
+    |> HTTPoison.get(headers)
+    |> _parse_access_token(params)
+  end
+
+  def refresh_token!(refresh_token, options \\ []) do
+    headers = Keyword.get(options, :headers, [])
+    options = Keyword.get(options, :options, [])
+    client = Keyword.get(options, :client_options, []) |> client()
+
+    url =
+      "#{@defaults[:refresh_token_url]}?#{
+        URI.encode_query(%{
+          client_id: client.client_id,
+          client_secret: client.client_secret,
+          grant_type: "refresh_token",
+          refresh_token: refresh_token
+        })
+      }"
+
+    url
+    |> HTTPoison.get(headers)
+    |> _parse_access_token()
+  end
+
+  defp _parse_access_token(response, params \\ []) do
+    case response do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         if String.starts_with?(body, ["callback( {"]) do
           %OAuth2.AccessToken{
