@@ -57,7 +57,7 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
     |> get_uid()
     |> case do
       {:ok, uid} ->
-        uid |> get_user_info(token[:access_token], url)
+        uid |> get_user_info(token.access_token, url)
 
       {:error, error_reason} ->
         {:error, %OAuth2.Error{reason: error_reason}}
