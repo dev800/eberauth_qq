@@ -120,12 +120,14 @@ defmodule Ueberauth.Strategy.QQ do
   Fetches the uid field from the QQ response. This defaults to the option `uid_field` which in-turn defaults to `id`
   """
   def uid(conn) do
-    user =
+    uid_field =
       conn
       |> option(:uid_field)
       |> to_string
 
-    conn.private.qq_user[user]
+    if conn.private[:qq_user] do
+      conn.private.qq_user[uid_field]
+    end
   end
 
   @doc """
@@ -170,7 +172,7 @@ defmodule Ueberauth.Strategy.QQ do
     }
   end
 
-  defp fetch_user(conn, token) do
+  def fetch_user(conn, token) do
     conn = put_private(conn, :qq_token, token)
 
     # Will be better with Elixir 1.3 with/else
@@ -187,6 +189,6 @@ defmodule Ueberauth.Strategy.QQ do
   end
 
   defp option(conn, key) do
-    Keyword.get(options(conn), key, Keyword.get(default_options(), key))
+    Keyword.get(options(conn) || %{}, key, Keyword.get(default_options(), key))
   end
 end
