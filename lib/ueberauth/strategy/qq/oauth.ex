@@ -57,14 +57,14 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
     |> get_uid()
     |> case do
       {:ok, uid} ->
-        uid |> get_user_info(token.access_token, url)
+        uid |> _get_user_info(token.access_token, url)
 
       {:error, error_reason} ->
         {:error, %OAuth2.Error{reason: error_reason}}
     end
   end
 
-  def get_user_info(uid, access_token, url) do
+  defp _get_user_info(uid, access_token, url) do
     client = [token: access_token] |> client()
 
     params = %{
@@ -95,9 +95,9 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
     end
   end
 
-  def get_uid(nil), do: {:error, "token is nil"}
+  defp _get_uid(nil), do: {:error, "token is nil"}
 
-  def get_uid(access_token) do
+  defp _get_uid(access_token) do
     params = %{access_token: access_token}
 
     case HTTPoison.get("#{@defaults[:id_url]}?#{URI.encode_query(params)}") do

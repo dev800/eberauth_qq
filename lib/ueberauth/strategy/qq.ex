@@ -54,6 +54,8 @@ defmodule Ueberauth.Strategy.QQ do
   alias Ueberauth.Auth.Credentials
   alias Ueberauth.Auth.Extra
 
+  @user_info_url "https://graph.qq.com/user/get_user_info"
+
   @doc """
   Handles the initial redirect to the qq authentication page.
 
@@ -172,7 +174,7 @@ defmodule Ueberauth.Strategy.QQ do
     conn = put_private(conn, :qq_token, token)
 
     # Will be better with Elixir 1.3 with/else
-    case Ueberauth.Strategy.QQ.OAuth.get(token, "https://graph.qq.com/user/get_user_info") do
+    case Ueberauth.Strategy.QQ.OAuth.get(token, @user_info_url) do
       {:ok, %OAuth2.Response{status_code: 401, body: _body}} ->
         set_errors!(conn, [error("token", "unauthorized")])
 
