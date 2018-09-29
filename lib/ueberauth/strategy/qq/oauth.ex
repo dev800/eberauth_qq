@@ -54,7 +54,7 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
 
   def get(token, url, headers \\ [], opts \\ []) do
     token.access_token
-    |> get_uid()
+    |> _get_uid()
     |> case do
       {:ok, uid} ->
         uid |> _get_user_info(token.access_token, url)
