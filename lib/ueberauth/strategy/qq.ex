@@ -189,6 +189,6 @@ defmodule Ueberauth.Strategy.QQ do
   end
 
   defp option(conn, key) do
-    Keyword.get(options(conn) || %{}, key, Keyword.get(default_options(), key))
+    Keyword.get(options(conn) || [], key, Keyword.get(default_options(), key))
   end
 end
