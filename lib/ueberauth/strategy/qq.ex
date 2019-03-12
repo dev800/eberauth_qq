@@ -47,7 +47,7 @@ defmodule Ueberauth.Strategy.QQ do
   """
   use Ueberauth.Strategy,
     uid_field: :uid,
-    default_scope: "",
+    default_scope: "get_user_info",
     oauth2_module: Ueberauth.Strategy.QQ.OAuth
 
   alias Ueberauth.Auth.Info
@@ -69,20 +69,19 @@ defmodule Ueberauth.Strategy.QQ do
     module = option(conn, :oauth2_module)
     scopes = conn.params["scope"] || option(conn, :default_scope)
     send_redirect_uri = Keyword.get(options(conn), :send_redirect_uri, true)
-    config = Application.get_env(:ueberauth, module, [])
+    config = conn.private[:ueberauth_request_options] |> Map.get(:options, [])
     redirect_uri = config[:redirect_uri] || callback_url(conn)
+    state = conn.params["state"]
 
-    opts =
+    params =
       if send_redirect_uri do
         [redirect_uri: redirect_uri, scope: scopes]
       else
         [scope: scopes]
       end
 
-    opts =
-      if conn.params["state"], do: Keyword.put(opts, :state, conn.params["state"]), else: opts
-
-    redirect!(conn, apply(module, :authorize_url!, [opts]))
+    params = if state, do: Keyword.put(params, :state, state), else: params
+    redirect!(conn, apply(module, :authorize_url!, [params, [config: config]]))
   end
 
   @doc """
@@ -91,9 +90,16 @@ defmodule Ueberauth.Strategy.QQ do
   """
   def handle_callback!(%Plug.Conn{params: %{"code" => code}} = conn) do
     module = option(conn, :oauth2_module)
-    token = apply(module, :get_token!, [[code: code]])
 
-    if token.access_token == nil do
+    client_options =
+      conn.private
+      |> Map.get(:ueberauth_request_options, [])
+      |> Map.get(:options, [])
+
+    options = [client_options: [config: client_options]]
+    token = apply(module, :get_token!, [[code: code], [options: options]])
+
+    if token.access_token |> to_string |> String.length() == 0 do
       set_errors!(conn, [
         error(token.other_params["error"], token.other_params["error_description"])
       ])

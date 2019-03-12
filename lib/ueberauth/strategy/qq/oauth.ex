@@ -30,18 +30,9 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
   These options are only useful for usage outside the normal callback phase of Ueberauth.
   """
   def client(opts \\ []) do
-    config =
-      :ueberauth
-      |> Application.fetch_env!(Ueberauth.Strategy.QQ.OAuth)
-      |> check_config_key_exists(:client_id)
-      |> check_config_key_exists(:client_secret)
-
-    client_opts =
-      @defaults
-      |> Keyword.merge(config)
-      |> Keyword.merge(opts)
-
-    OAuth2.Client.new(client_opts)
+    @defaults
+    |> Keyword.merge(opts[:config] || [])
+    |> OAuth2.Client.new()
   end
 
   @doc """
@@ -49,7 +40,7 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
   """
   def authorize_url!(params \\ [], opts \\ []) do
     opts
-    |> client
+    |> client()
     |> OAuth2.Client.authorize_url!(params)
   end
 
@@ -58,24 +49,24 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
     |> _get_uid()
     |> case do
       {:ok, uid} ->
-        uid |> _get_user_info(token.access_token, url)
+        uid |> _get_user_info(token.access_token, token.other_params[:client_id], url)
 
       {:error, error_reason} ->
         {:error, %OAuth2.Error{reason: error_reason}}
     end
   end
 
-  defp _get_user_info(uid, access_token, url) do
-    client = [token: access_token] |> client()
-
+  defp _get_user_info(uid, access_token, client_id, url) do
     params = %{
       format: "json",
       openid: uid,
-      oauth_consumer_key: client.client_id,
+      oauth_consumer_key: client_id,
       access_token: access_token
     }
 
-    case HTTPoison.get("#{url}?#{URI.encode_query(params)}") do
+    "#{url}?#{URI.encode_query(params)}"
+    |> HTTPoison.get()
+    |> case do
       {:ok, %HTTPoison.Response{body: body, status_code: 200}} ->
         body
         |> Jason.decode!()
@@ -228,17 +219,5 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
     |> put_param(:secret, client.client_secret)
     |> put_header("Accept", "application/json")
     |> OAuth2.Strategy.AuthCode.get_token(params, headers)
-  end
-
-  defp check_config_key_exists(config, key) when is_list(config) do
-    unless Keyword.has_key?(config, key) do
-      raise "#{inspect(key)} missing from config :ueberauth, Ueberauth.Strategy.QQ"
-    end
-
-    config
-  end
-
-  defp check_config_key_exists(_, _) do
-    raise "Config :ueberauth, Ueberauth.Strategy.QQ is not a keyword list, as expected"
   end
 end
