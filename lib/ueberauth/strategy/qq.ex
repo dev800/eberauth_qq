@@ -56,6 +56,8 @@ defmodule Ueberauth.Strategy.QQ do
 
   @user_info_url "https://graph.qq.com/user/get_user_info"
 
+  def oauth2_module, do: Ueberauth.Strategy.QQ.OAuth
+
   def secure_random_hex(n \\ 16) do
     n
     |> :crypto.strong_rand_bytes()
@@ -102,7 +104,7 @@ defmodule Ueberauth.Strategy.QQ do
 
     client_options =
       conn.private
-      |> Map.get(:ueberauth_request_options, [])
+      |> Map.get(:ueberauth_request_options, %{})
       |> Map.get(:options, [])
 
     options = [client_options: [config: client_options]]
@@ -173,15 +175,39 @@ defmodule Ueberauth.Strategy.QQ do
     }
   end
 
+  def present?(str), do: str |> to_string() |> String.length() > 0
+
   @doc """
   Fetches the fields to populate the info section of the `Ueberauth.Auth` struct.
   """
   def info(conn) do
     user = conn.private.qq_user
 
+    gender =
+      case user["gender"] do
+        "男" ->
+          :male
+
+        "女" ->
+          :female
+
+        "male" ->
+          :male
+
+        "female" ->
+          :female
+
+        _ ->
+          :default
+      end
+
+    areas = [user["province"], user["city"]] |> Enum.filter(fn area -> present?(area) end)
+
     %Info{
       nickname: user["nickname"],
-      image: user["headimgurl"]
+      image: user["figureurl_qq"],
+      gender: gender,
+      areas: areas
     }
   end
 
