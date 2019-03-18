@@ -116,7 +116,7 @@ defmodule Ueberauth.Strategy.QQ do
     cond do
       state != session_state ->
         set_errors!(conn, [
-          error("StateMistake", "state misstake")
+          error("StateMistake", "state mistake")
         ])
 
       token.access_token |> to_string |> String.length() == 0 ->

@@ -10,6 +10,13 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
   """
   use OAuth2.Strategy
 
+  @default_headers [
+    {"Accept",
+     "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"},
+    {"User-Agent",
+     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.121 Safari/537.36"}
+  ]
+
   @defaults [
     strategy: __MODULE__,
     site: "https://graph.qq.com/oauth2.0/",
@@ -49,7 +56,7 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
     |> _get_uid()
     |> case do
       {:ok, uid} ->
-        uid |> _get_user_info(token.access_token, token.other_params[:client_id], url)
+        uid |> _get_user_info(token.access_token, token.other_params["client_id"], url)
 
       {:error, error_reason} ->
         {:error, %OAuth2.Error{reason: error_reason}}
@@ -92,7 +99,9 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
   defp _get_uid(access_token) do
     params = %{access_token: access_token}
 
-    case HTTPoison.get("#{@defaults[:id_url]}?#{URI.encode_query(params)}") do
+    "#{@defaults[:id_url]}?#{URI.encode_query(params)}"
+    |> HTTPoison.get(@default_headers)
+    |> case do
       {:ok, %HTTPoison.Response{body: response_body, status_code: 200}} ->
         case response_body |> normalize_response_body do
           %{"client_id" => _client_id, "openid" => uid} ->
@@ -105,13 +114,16 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
             {:error, error_description}
         end
 
+      {:ok, %HTTPoison.Response{status_code: status_code}} ->
+        {:error, "status code #{status_code}"}
+
       {:error, error_reason} ->
         {:error, error_reason}
     end
   end
 
   def get_token!(params \\ [], options \\ []) do
-    headers = Keyword.get(options, :headers, [])
+    headers = Keyword.get(options, :headers, @default_headers)
     options = Keyword.get(options, :options, [])
     client_options = Keyword.get(options, :client_options, [])
     oauth_client = client(client_options)
@@ -175,7 +187,7 @@ defmodule Ueberauth.Strategy.QQ.OAuth do
           expires_at = Timex.now() |> Timex.shift(seconds: String.to_integer(token.expires_in))
 
           %OAuth2.AccessToken{
-            other_params: params |> Map.new(),
+            other_params: params |> Enum.map(fn {k, v} -> {"#{k}", v} end) |> Map.new(),
             token_type: "Bearer",
             expires_at: expires_at,
             refresh_token: token[:refresh_token],
